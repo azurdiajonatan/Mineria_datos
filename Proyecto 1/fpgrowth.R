@@ -3,13 +3,14 @@ library(arules)
 library(ggplot2)
 library(dplyr)
 library(rstudioapi)
+library(stringr)
 
 ### EXPORTACIONES 2018 - 2019 - 2020 - 2021 - 2024
 
 meses <- c("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
 
-# -
+# Establecer en carpeta actual
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 ## IMPORTAR ARCHIVO DE DICCIONARIO DE TERMINOS
@@ -54,15 +55,49 @@ history <- history %>%
   select(-DESCRIPCIÓN)
 
 # SAC
+
+# Convertir SAC a carácter
+history$SAC <- as.character(history$SAC)
+
+# Rellenar con ceros a la izquierda hasta 10 dígitos
+history$SAC <- stringr::str_pad(history$SAC, width = 10, side = "left", pad = "0")
+
+# Verificar
+head(history$SAC)
+nchar(history$SAC) # Debe devolver 10 para todos
+
+
 sac <- read_excel(ruta_dic, sheet = "SAC 6a.E")
 sac <- sac %>%
   mutate(CÓDIGO = gsub("\\.","", CÓDIGO)) %>%
-  mutate(CÓDIGO = sub("^0+","",CÓDIGO))
+  group_by(CÓDIGO) %>%
+  summarise(DESCRIPCIÓN = first(DESCRIPCIÓN))
+
 history <- history %>%
-  left_join(sac, by = c("SAC" = "CÓDIGO"))
+  mutate(SAC_PADRE = substr(SAC, 1, 4)) %>%
+  left_join(sac, by = c("SAC_PADRE" = "CÓDIGO"))
+
+          
+data_history <- history
+
+data_history$VALOR <- cut(history$VALOR, breaks = c(1,5000,50000,500000,5000000, 95000000), 
+      labels = c("Cortas","Pequeñas","Medianas","Grandes","Muy Grandes"))
+
+data_history$PESO <- cut(history$PESO, breaks = c(1,5000,50000,500000,5000000, 95000000), 
+                    labels = c("xs","s","M","L","XL"))
 
 
-datos <- history[,c("MES","PAIS","ADUANA","VIA","VALOR","PESO")]
+# CASO 1
+datos <- data_history[,c("ANYO","MES","PAIS","ADUANA","VIA","VALOR","PESO")]
 
 reglas <- fim4r(datos, method="fpgrowth", target ="rules", supp =.2, conf=.5)
+
+# CASO 2
+datos_case2 <- data_history %>%
+  filter(VALOR %in% c("Grandes","Muy Grandes"))
+
+datos <- datos_case2[,c("ANYO","PAIS","SAC_PADRE")]
+
+reglas_case2 <- fim4r(datos_case2, method="fpgrowth", target ="rules", supp =.1, conf=.5)
+
 
