@@ -59,13 +59,10 @@ history <- history %>%
 # Convertir SAC a carácter
 history$SAC <- as.character(history$SAC)
 
+# Convertir SAC a solamente padre
+history$SAC <- str_sub(history$SAC,1,4)
+
 # Rellenar con ceros a la izquierda hasta 10 dígitos
-history$SAC <- stringr::str_pad(history$SAC, width = 10, side = "left", pad = "0")
-
-# Verificar
-head(history$SAC)
-nchar(history$SAC) # Debe devolver 10 para todos
-
 
 sac <- read_excel(ruta_dic, sheet = "SAC 6a.E")
 sac <- sac %>%
@@ -86,11 +83,31 @@ data_history$VALOR <- cut(history$VALOR, breaks = c(1,5000,50000,500000,5000000,
 data_history$PESO <- cut(history$PESO, breaks = c(1,5000,50000,500000,5000000, 95000000), 
                     labels = c("xs","s","M","L","XL"))
 
+View(data_history)
+colnames(data_history)
 
 # CASO 1
 datos <- data_history[,c("ANYO","MES","PAIS","ADUANA","VIA","VALOR","PESO")]
 
 reglas <- fim4r(datos, method="fpgrowth", target ="rules", supp =.2, conf=.5)
+
+inspect(reglas)
+
+# Vista rápida
+plot(reglas)
+
+plot(reglas, method = "matrix", measure = c("lift", "confidence"))
+
+
+# Gráfico de red (interactivo)
+plot(reglas, method = "graph", control = list(type = "items"))
+
+
+
+top_rules <- head(sort(reglas, by = "lift"), 15)
+plot(top_rules, method = "graph", control = list(type = "items"))
+inspect(top_rules)
+
 
 # CASO 2
 datos_case2 <- data_history %>%
@@ -98,6 +115,38 @@ datos_case2 <- data_history %>%
 
 datos <- datos_case2[,c("ANYO","PAIS","SAC_PADRE")]
 
-reglas_case2 <- fim4r(datos_case2, method="fpgrowth", target ="rules", supp =.1, conf=.5)
+reglas_case2 <- fim4r(datos_case2, method="fpgrowth", target ="rules", supp =.3, conf=.5)
 
+inspect(reglas_case2)
+
+
+
+
+
+# CASO 3
+#colnames(data_history)
+datos_case3 <- data_history[, c("SAC_PADRE", "PAIS", "ADUANA", "PESO", "VIA")]
+
+reglas_case3 <- fim4r(datos_case3,method = "fpgrowth",target = "rules",supp = 0.1,conf = 0.5)
+
+inspect(reglas_case3)
+
+
+#CASO 4
+datos_case5 <- subset(data_history, VIA == "Marítima")
+View(datos_case5)
+
+reglas_case5 <- fim4r(datos_case5[, c("SAC","ADUANA")],
+                      method = "fpgrowth",
+                      target = "rules",
+                      supp = 0.005,  # 0.5%
+                      conf = 0.5)
+inspect(reglas_case5)
+
+
+datos_mar <- history %>%
+  filter(VIA == "Marítima") %>%
+  count(SAC, sort = TRUE)
+
+head(datos_mar, 10)
 
