@@ -6,6 +6,9 @@ datos <- read_excel("C:\\Users\\jonat\\Documents\\Maestria R\\Trimestre 2\\Tarea
 
 data <- datos[, c("AGR_EDAD","AGR_ESCOLARIDAD","AGR_TRABAJA","AGR_DEDICA","AGR_EST_CIV","AGR_NACIONAL")]
 
+data <- subset(data, AGR_EST_CIV != 9 )
+View(data)
+
 data$AGR_EST_CIV <- as.factor(data$AGR_EST_CIV)
 
 data <- na.omit(data)
@@ -14,12 +17,10 @@ set.seed(300)
 
 data <- data[sample(1:nrow(data)),]
 
-index <- sample(1:nrow(data),0.90*nrow(data))
+index <- sample(1:nrow(data),0.70*nrow(data))
 
 train <- data[index,]
 test <- data[-index,]
-
-
 
 bosque <- randomForest(AGR_EST_CIV ~
                  AGR_EDAD +
